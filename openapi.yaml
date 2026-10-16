@@ -1,0 +1,271 @@
+openapi: 3.0.0
+info:
+  title: 'Future Tasks API'
+  description: 'REST API для управления списком задач. Тестовое задание для Future'
+  version: 1.0.0
+servers:
+  -
+    url: 'http://localhost:8080'
+    description: 'Локальный сервер разработки'
+paths:
+  /api/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: 'Список задач'
+      description: 'Возвращает постраничный список задач с возможностью поиска и сортировки.'
+      operationId: be68905d866e856db6c738172b8d929a
+      parameters:
+        -
+          name: search
+          in: query
+          description: 'Поиск по названию'
+          schema:
+            type: string
+            maxLength: 255
+        -
+          name: sort
+          in: query
+          description: 'Поле сортировки'
+          schema:
+            type: string
+            enum:
+              - due_date
+              - created_at
+        -
+          name: page
+          in: query
+          description: 'Номер страницы'
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: per_page
+          in: query
+          description: 'Записей на странице'
+          schema:
+            type: integer
+            default: 15
+            maximum: 100
+            minimum: 1
+      responses:
+        '200':
+          description: 'Список задач'
+          content:
+            application/json:
+              schema:
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Task' } }
+                  links: { type: object }
+                  meta: { type: object }
+                type: object
+        '422':
+          description: 'Ошибка валидации query-параметров'
+    post:
+      tags:
+        - Tasks
+      summary: 'Создать задачу'
+      description: 'POST /api/tasks'
+      operationId: ebbaabc58e3db61374a57c53544959b2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+                - title
+                - due_date
+              properties:
+                title:
+                  type: string
+                  example: Задача1
+                  maxLength: 255
+                description:
+                  type: string
+                  example: 'Описание задачи'
+                  nullable: true
+                due_date:
+                  type: string
+                  format: date-time
+                  example: '2025-01-20T15:00:00'
+                status:
+                  type: string
+                  example: pending
+                  enum: [pending, done]
+                priority:
+                  type: string
+                  example: high
+                  enum: [low, medium, high]
+                category:
+                  type: string
+                  example: Работа
+                  nullable: true
+                  maxLength: 100
+              type: object
+      responses:
+        '201':
+          description: 'Задача создана'
+          content:
+            application/json:
+              schema:
+                properties:
+                  id: { type: integer, example: 1 }
+                  message: { type: string, example: 'Task created successfully' }
+                type: object
+        '422':
+          description: 'Ошибка валидации'
+  '/api/tasks/{id}':
+    get:
+      tags:
+        - Tasks
+      summary: 'Получить задачу по ID'
+      description: 'GET /api/tasks/{task}'
+      operationId: 32c40e2d1129b80c1dcabd538df63a33
+      parameters:
+        -
+          name: id
+          in: path
+          description: 'ID задачи'
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 'Задача найдена'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: 'Задача не найдена'
+    put:
+      tags:
+        - Tasks
+      summary: 'Обновить задачу'
+      description: 'PUT /api/tasks/{task}'
+      operationId: c36c959b634c99e1e02ad2f3f2c36a2c
+      parameters:
+        -
+          name: id
+          in: path
+          description: 'ID задачи'
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              properties:
+                title:
+                  type: string
+                  example: Задача2
+                  maxLength: 255
+                description:
+                  type: string
+                  nullable: true
+                due_date:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+                  enum: [pending, done]
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+                category:
+                  type: string
+                  nullable: true
+                  maxLength: 100
+              type: object
+      responses:
+        '200':
+          description: 'Задача обновлена'
+          content:
+            application/json:
+              schema:
+                properties:
+                  message: { type: string, example: 'Task updated successfully' }
+                type: object
+        '404':
+          description: 'Задача не найдена'
+        '422':
+          description: 'Ошибка валидации'
+    delete:
+      tags:
+        - Tasks
+      summary: 'Удалить задачу'
+      description: 'DELETE /api/tasks/{task}'
+      operationId: d81cc7975ea62176b4ef8f74ed95168d
+      parameters:
+        -
+          name: id
+          in: path
+          description: 'ID задачи'
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 'Задача удалена'
+          content:
+            application/json:
+              schema:
+                properties:
+                  message: { type: string, example: 'Task deleted successfully' }
+                type: object
+        '404':
+          description: 'Задача не найдена'
+components:
+  schemas:
+    Task:
+      required:
+        - id
+        - title
+        - due_date
+        - create_date
+        - status
+        - priority
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Задача1
+          maxLength: 255
+        description:
+          type: string
+          example: 'Описание задачи'
+          nullable: true
+        due_date:
+          type: string
+          format: date-time
+          example: '2025-01-20T15:00:00+00:00'
+        create_date:
+          type: string
+          format: date-time
+          example: '2025-01-20T15:00:00+00:00'
+        status:
+          type: string
+          example: pending
+          enum:
+            - pending
+            - done
+        priority:
+          type: string
+          example: high
+          enum:
+            - low
+            - medium
+            - high
+        category:
+          type: string
+          example: Работа
+          nullable: true
+      type: object
+tags:
+  -
+    name: Tasks
+    description: 'Операции с задачами'
