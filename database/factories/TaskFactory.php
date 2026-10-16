@@ -54,7 +54,7 @@ class TaskFactory extends Factory
     }
 
     /**
-        * Состояние: средний приоритет.
+    * Состояние: средний приоритет.
     */
     public function mediumPriority(): static
     {
@@ -62,8 +62,8 @@ class TaskFactory extends Factory
     }
 
     /**
-     * Состояние: высокий приоритет.
-     */
+    * Состояние: высокий приоритет.
+    */
     public function highPriority(): static
     {
         return $this->state(fn () => ['priority' => Priority::High]);
