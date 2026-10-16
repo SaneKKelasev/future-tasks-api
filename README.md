@@ -1,58 +1,153 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Future Tasks API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API для управления списком задач. Тестовое задание для компании Future.
 
-## About Laravel
+## Стек
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3
+- Laravel 13
+- MySQL 8.0
+- Nginx 1.27 + PHP-FPM 8.3
+- Docker Compose v2+
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Требования
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Docker 24+
+- Docker Compose v2+
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Быстрый старт
 
 ```bash
-composer require laravel/boost --dev
+# 1. Клонировать репозиторий
+git clone https://github.com/SaneKKelasev/future-tasks-api.git
+cd future-tasks-api
 
-php artisan boost:install
+# 2. Создать .env из шаблона и заполнить пароли
+cp .env.example .env
+
+# 3. Собрать и запустить контейнеры
+docker compose up -d --build
+
+# 4. Сгенерировать ключ приложения
+docker compose exec app php artisan key:generate
+
+# 5. Применить миграции и заполнить демо-данными
+docker compose exec app php artisan migrate:fresh --seed
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+После этого API доступен по адресу **http://localhost:8080/api/tasks**.
 
-## Contributing
+## Документация API
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Swagger UI: **http://localhost:8081**
 
-## Code of Conduct
+OpenAPI-спецификация: [`openapi.yaml`](./openapi.yaml)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Эндпоинты
 
-## Security Vulnerabilities
+| Метод | URL | Описание |
+|---|---|---|
+| POST | `/api/tasks` | Создание задачи |
+| GET | `/api/tasks` | Список задач с поиском, сортировкой и пагинацией |
+| GET | `/api/tasks/{id}` | Получение задачи по ID |
+| PUT | `/api/tasks/{id}` | Обновление задачи |
+| DELETE | `/api/tasks/{id}` | Удаление задачи |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Параметры списка задач
 
-## License
+| Параметр | Тип | Описание |
+|---|---|---|
+| `search` | string (≤255) | Поиск по подстроке в названии |
+| `sort` | `due_date` \| `created_at` | Поле сортировки (по умолчанию `due_date`) |
+| `page` | integer ≥1 | Номер страницы |
+| `per_page` | integer 1..100 | Записей на странице (по умолчанию 15) |
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Примеры запросов
+
+**Создание задачи:**
+
+```bash
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Задача1",
+    "description": "Описание задачи",
+    "due_date": "2025-01-20T15:00:00",
+    "priority": "high",
+    "category": "Работа"
+  }'
+```
+
+**Список с поиском и сортировкой:**
+
+```bash
+curl "http://localhost:8080/api/tasks?search=отчёт&sort=due_date&per_page=5"
+```
+
+## Тестирование
+
+### Как я тестировал
+
+Использовал **PHPUnit.
+Тесты находятся в `tests/Feature/Api/TaskControllerTest.php`.
+
+Проверяется:
+- Создание задачи (happy path + 4 кейса валидации через `DataProvider`).
+- Пагинация списка/
+- Поиск по подстроке в названии.
+- Сортировка по `due_date` по умолчанию.
+- Получение задачи по ID + 404 для несуществующей.
+- Обновление задачи + 404.
+- Удаление задачи + 404 + проверка отсутствия в БД.
+
+### Запуск тестов
+
+```bash
+docker compose exec app php artisan test
+```
+
+Тесты используют **отдельную БД** `tasks_test` (настраивается в `phpunit.xml`),
+которая изолирована от дев-базы `tasks`. Это защищает данные разработки
+от стирания при `RefreshDatabase`.
+
+### Ручное тестирование
+
+- **Swagger UI** (`http://localhost:8081`) — интерактивная проверка эндпоинтов кнопкой `Try it out`.
+- **curl** — быстрая проверка из терминала 
+- **Postman / Insomnia** — если нужен продвинутый сценарий (цепочки запросов, переменные).
+
+## Структура проекта
+
+```
+app/
+├── Enums/                    # PHP enum'ы Status и Priority
+├── Http/
+│   ├── Controllers/Api/      # TaskController — тонкий HTTP-слой
+│   ├── Middleware/           # ForceJsonUnicode — русский текст без \u-escape
+│   ├── Requests/             # FormRequest'ы для валидации (Store/Update/List)
+│   └── Resources/            # TaskResource — форматирование JSON-ответа
+├── Models/Task.php           # Модель Eloquent с enum-кастами
+├── OpenApi/                  # Атрибуты OpenAPI (Info, Schemas)
+└── Services/TaskService.php  # Бизнес-логика (list/create/update/delete)
+
+database/
+├── factories/                # TaskFactory со state-методами
+├── migrations/               # Миграция tasks
+└── seeders/                  # TaskSeeder — демо-данные
+
+docker/
+├── nginx/default.conf        # Конфиг nginx
+└── php/Dockerfile            # Multi-stage сборка PHP-FPM
+
+tests/Feature/Api/            # Feature-тесты TaskController
+openapi.yaml                  # Сгенерированная OpenAPI-спецификация
+```
+
+## Архитектурные решения
+
+- **FormRequest** — валидация вынесена из контроллера. Контроллер не знает о правилах.
+- **API Resource** — внутренняя схема БД не «протекает» наружу. `created_at` в модели отдаётся как `create_date` в API.
+- **Service Layer** — бизнес-логика изолирована от HTTP. Тот же сервис можно переиспользовать из консольной команды или очереди.
+- **PHP enums** — типизация значений `status` и `priority`. В БД строки, в коде — enum. Легко расширять без `ALTER TABLE`.
+- **Multi-stage Dockerfile** — финальный образ не содержит dev-зависимостей.
+- **Отдельная БД для тестов** — `RefreshDatabase` не трогает данные разработки.
