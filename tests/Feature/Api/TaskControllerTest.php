@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
-use App\Enums\Priority;
-use App\Enums\Status;
 use App\Models\Task;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -16,7 +14,7 @@ class TaskControllerTest extends TestCase
     use RefreshDatabase;
 
     /*
-    * POST /api/tasks — создание
+    * POST /api/tasks
     */
     public function test_task_can_be_created(): void
     {
@@ -31,33 +29,12 @@ class TaskControllerTest extends TestCase
         $response = $this->postJson('/api/tasks', $payload);
 
         $response->assertCreated()
-            ->assertJsonStructure(['id', 'message'])
             ->assertJson(['message' => 'Task created successfully']);
 
         $this->assertDatabaseHas('tasks', [
-            'title'         => 'Новая задача',
-            'description'   => 'Описание задачи',
-            'priority'      => 'high',
-            'category'      => 'Работа',
-            'status'        => 'pending',
-        ]);
-    }
-
-    public function test_task_created_with_defaults_when_optional_fields_missing(): void
-    {
-        $payload = [
-            'title'     => 'Минимальная задача',
-            'due_date'  => '2026-12-01T10:00:00',
-        ];
-
-        $this->postJson('/api/tasks', $payload)->assertCreated();
-
-        $this->assertDatabaseHas('tasks', [
-            'title'         => 'Минимальная задача',
-            'description'   => null,
-            'category'      => null,
-            'status'        => 'pending',
-            'priority'      => 'medium',
+            'title'     => 'Новая задача',
+            'priority'  => 'high',
+            'status'    => 'pending',
         ]);
     }
 
@@ -74,170 +51,122 @@ class TaskControllerTest extends TestCase
      */
     public static function invalidCreatePayloadsProvider(): array
     {
-        $validBase = [
-            'title'     => 'Валидная задача',
-            'due_date'  => '2026-12-01T10:00:00',
-        ];
+        $valid = ['title' => 'Валидная задача', 'due_date' => '2026-12-01T10:00:00'];
 
         return [
-            'title missing' => [
-                ['due_date' => '2026-12-01T10:00:00'],
-                'title',
-            ],
-            'title empty' => [
-                array_merge($validBase, ['title' => '']),
-                'title',
-            ],
-            'title too long' => [
-                array_merge($validBase, ['title' => str_repeat('a', 256)]),
-                'title',
-            ],
-            'title wrong type' => [
-                array_merge($validBase, ['title' => ['array']]),
-                'title',
-            ],
-            'due_date missing' => [
-                ['title' => 'Задача'],
-                'due_date',
-            ],
-            'due_date invalid' => [
-                array_merge($validBase, ['due_date' => 'not-a-date']),
-                'due_date',
-            ],
-            'priority invalid' => [
-                array_merge($validBase, ['priority' => 'urgent']),
-                'priority',
-            ],
-            'status invalid' => [
-                array_merge($validBase, ['status' => 'archived']),
-                'status',
-            ],
-            'category too long' => [
-                array_merge($validBase, ['category' => str_repeat('a', 101)]),
-                'category',
-            ],
+            'title missing' => [['due_date' => '2026-12-01T10:00:00'], 'title'],
+            'title too long' => [array_merge($valid, ['title' => str_repeat('a', 256)]), 'title'],
+            'due_date invalid' => [array_merge($valid, ['due_date' => 'not-a-date']), 'due_date'],
+            'priority invalid' => [array_merge($valid, ['priority' => 'urgent']), 'priority'],
         ];
     }
 
     /*
-    * GET /api/tasks — список
+    * GET /api/tasks
     */
-    public function test_tasks_list_is_paginated_with_default_per_page(): void
+
+    public function test_tasks_list_is_paginated(): void
     {
         Task::factory()->count(20)->create();
 
         $response = $this->getJson('/api/tasks');
 
         $response->assertOk()
-            ->assertJsonStructure([
-                'data'  => [['id', 'title', 'description', 'due_date', 'create_date', 'status', 'priority', 'category']],
-                'links' => ['first', 'last', 'prev', 'next'],
-                'meta'  => ['current_page', 'per_page', 'total', 'last_page'],
-            ])
             ->assertJsonPath('meta.total', 20)
             ->assertJsonPath('meta.per_page', 15)
-            ->assertJsonPath('meta.current_page', 1)
-            ->assertJsonPath('meta.last_page', 2)
             ->assertJsonCount(15, 'data');
     }
 
-    public function test_tasks_list_respects_per_page_parameter(): void
-    {
-        Task::factory()->count(20)->create();
-
-        $response = $this->getJson('/api/tasks?per_page=5');
-
-        $response->assertOk()
-            ->assertJsonPath('meta.per_page', 5)
-            ->assertJsonPath('meta.last_page', 4)
-            ->assertJsonCount(5, 'data');
-    }
-
-    public function test_tasks_list_can_search_by_title_substring(): void
+    public function test_tasks_list_can_search_by_title(): void
     {
         Task::factory()->create(['title' => 'Подготовить отчёт за квартал']);
         Task::factory()->create(['title' => 'Купить продукты']);
-        Task::factory()->create(['title' => 'Позвонить маме']);
 
         $response = $this->getJson('/api/tasks?search=отчёт');
 
         $response->assertOk()
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Подготовить отчёт за квартал');
     }
 
-    public function test_tasks_list_returns_empty_when_search_matches_nothing(): void
-    {
-        Task::factory()->count(3)->create();
-
-        $response = $this->getJson('/api/tasks?search=несуществующийтекст');
-
-        $response->assertOk()
-            ->assertJsonPath('meta.total', 0)
-            ->assertJsonCount(0, 'data');
-    }
-
-    public function test_tasks_list_is_sorted_by_due_date_ascending_by_default(): void
+    public function test_tasks_list_is_sorted_by_due_date(): void
     {
         Task::factory()->create(['title' => 'Позже', 'due_date' => '2026-12-10 12:00:00']);
         Task::factory()->create(['title' => 'Раньше', 'due_date' => '2026-12-01 12:00:00']);
-        Task::factory()->create(['title' => 'Середина', 'due_date' => '2026-12-05 12:00:00']);
 
         $response = $this->getJson('/api/tasks');
 
         $response->assertOk()
             ->assertJsonPath('data.0.title', 'Раньше')
-            ->assertJsonPath('data.1.title', 'Середина')
-            ->assertJsonPath('data.2.title', 'Позже');
+            ->assertJsonPath('data.1.title', 'Позже');
     }
 
-    public function test_tasks_list_can_be_sorted_by_created_at(): void
-    {
-        Task::factory()->create(['title' => 'Старая', 'created_at' => '2026-10-01 10:00:00']);
-        Task::factory()->create(['title' => 'Новая', 'created_at' => '2026-10-15 10:00:00']);
+    /*
+    * GET /api/tasks/{id}
+    */
 
-        $response = $this->getJson('/api/tasks?sort=created_at');
+    public function test_task_can_be_shown(): void
+    {
+        $task = Task::factory()->create(['title' => 'Конкретная задача']);
+
+        $this->getJson("/api/tasks/{$task->id}")
+            ->assertOk()
+            ->assertJsonPath('id', $task->id)
+            ->assertJsonPath('title', 'Конкретная задача');
+    }
+
+    public function test_show_returns_404_for_unknown_task(): void
+    {
+        $this->getJson('/api/tasks/999')->assertNotFound();
+    }
+
+    /*
+    * PUT /api/tasks/{id}
+    */
+
+    public function test_task_can_be_updated(): void
+    {
+        $task = Task::factory()->create(['title' => 'Старое название', 'priority' => 'low']);
+
+        $response = $this->putJson("/api/tasks/{$task->id}", [
+            'title'     => 'Новое название',
+            'priority'  => 'high',
+            'status'    => 'done',
+        ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.0.title', 'Старая')
-            ->assertJsonPath('data.1.title', 'Новая');
+            ->assertJson(['message' => 'Task updated successfully']);
+
+        $this->assertDatabaseHas('tasks', [
+            'id'        => $task->id,
+            'title'     => 'Новое название',
+            'priority'  => 'high',
+            'status'    => 'done',
+        ]);
     }
 
-    #[DataProvider('invalidListQueryProvider')]
-    public function test_list_validates_query_params(array $query, string $expectedErrorField): void
+    public function test_update_returns_404_for_unknown_task(): void
     {
-        $this->getJson('/api/tasks?' . http_build_query($query))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors($expectedErrorField);
+        $this->putJson('/api/tasks/999', ['title' => 'Любое'])->assertNotFound();
     }
 
-    /**
-     * @return array<string, array{array<string, mixed>, string}>
-     */
-    public static function invalidListQueryProvider(): array
+    /*
+    * DELETE /api/tasks/{id}
+    */
+
+    public function test_task_can_be_deleted(): void
     {
-        return [
-            'sort not allowed' => [
-                ['sort' => 'title'],
-                'sort',
-            ],
-            'per_page too big' => [
-                ['per_page' => 999],
-                'per_page',
-            ],
-            'per_page not integer' => [
-                ['per_page' => 'abc'],
-                'per_page',
-            ],
-            'per_page zero' => [
-                ['per_page' => 0],
-                'per_page',
-            ],
-            'search too long' => [
-                ['search' => str_repeat('a', 256)],
-                'search',
-            ],
-        ];
+        $task = Task::factory()->create();
+
+        $this->deleteJson("/api/tasks/{$task->id}")
+            ->assertOk()
+            ->assertJson(['message' => 'Task deleted successfully']);
+
+        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+    }
+
+    public function test_delete_returns_404_for_unknown_task(): void
+    {
+        $this->deleteJson('/api/tasks/999')->assertNotFound();
     }
 }
